@@ -1,0 +1,22 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "![Rona Bot](https://i.imgur.com/n9QB3at.jpeg)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@xaviabot/fb-downloader": "^1.0.14",
+    "axios": "^1.10.0",
+    "chokidar": "^4.0.3",
+    "express": "^5.1.0",
+    "fontstyles": "^1.1.2",
+    "kleur": "^4.1.5",
+    "ws3-fca": "^2.0.1",
+    "ytdl-core": "^4.11.5"
+  }
+}
