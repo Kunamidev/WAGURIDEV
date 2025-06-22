@@ -3,46 +3,43 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "gemini",
-    description: "Ask Gemini 2.5 Pro with optional image.",
-    usage: "gemini [prompt] (reply to image optional)",
-    cooldown: 5,
-    role: 0,
-    prefix: false
+    description: "Ask Gemini with image vision",
+    usage: "gemini [text] + image",
+    cooldown: 3,
+    prefix: false,
+    role: 0
   },
 
   run: async (api, event, args, reply, react) => {
-    const prompt = args.join(" ").trim();
-    const uid = String(event.senderID);
-    const replyMessage = event.messageReply;
-    let imageUrl = "";
+    const question = args.join(" ").trim();
 
-    if (!prompt) {
-      react("⚠️", event);
-      return reply(global.formatFont("Usage: gemini [prompt] (you can reply to an image)"), event);
-    }
-
-    if (replyMessage?.attachments?.[0]?.type === "photo") {
-      imageUrl = encodeURIComponent(replyMessage.attachments[0].url);
+    if (!question || !event.messageReply?.attachments?.[0]?.type?.includes("photo")) {
+      react("📷", event);
+      return reply(global.formatFont("❗ Please reply to an image with a message.\nExample: gemini describe this"), event);
     }
 
     try {
-      react("🤖", event);
+      react("🧠", event);
+      const pending = await api.sendMessage("🔄 Generating answer...", event.threadID);
 
-      const response = await axios.get(`https://renzweb.onrender.com/api/gemini-2.5-pro?prompt=${encodeURIComponent(prompt)}&uid=${uid}&imgs=${imageUrl}`);
-      const answer = response.data?.response;
+      const imgURL = event.messageReply.attachments[0].url;
 
-      if (!answer) {
-        react("❌", event);
-        return reply(global.formatFont("❌ Walang sagot na nakuha mula kay Gemini."), event);
-      }
+      const res = await axios.get(`https://heru-api.onrender.com/api/gemini-vision`, {
+        params: {
+          msg: question,
+          img: imgURL
+        }
+      });
 
+      const output = res.data?.reply || "❌ No response from Gemini.";
+      const author = res.data?.author || "Unknown";
       react("✅", event);
-      reply(global.formatFont(answer), event);
 
+      const result = `🤖 𝗚𝗘𝗠𝗜𝗡𝗜 𝗩𝗜𝗦𝗜𝗢𝗡\n━━━━━━━━━━━━━━━━━━\n${output}\n━━━━━━━━━━━━━━━━━━\n👤 Author: ${author}`;
+      api.editMessage(global.formatFont(result), pending.messageID);
     } catch (err) {
-      console.error("[gemini error]", err.message);
-      react("❌", event);
-      reply(global.formatFont("❌ May error habang kinakausap si Gemini. Subukang muli."));
+      console.error("Gemini API error:", err.message);
+      reply(global.formatFont(`❌ Error: ${err.message}`), event);
     }
   }
 };
