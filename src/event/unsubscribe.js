@@ -1,9 +1,3 @@
-const axios = require("axios");
-
-function getAvatarUser(uid) {
-  return `https://graph.facebook.com/${uid}/picture?width=512&height=512`;
-}
-
 module.exports = {
   config: {
     name: "unsubscribe",
@@ -39,11 +33,7 @@ module.exports = {
         "Unknown";
 
       const kickerName =
-        isKick && (userInfo[kickerID]?.name || "an admin");
-
-      const avatarURL = getAvatarUser(leftID);
-      const goodbyeURL = `https://heru-api.onrender.com/api/goodbye?pp=${encodeURIComponent(avatarURL)}&nama=${encodeURIComponent(leftName)}&bg=https://i.ibb.co/4YBNyvP/images-76.jpg&member=${memberCount}`;
-      const response = await axios.get(goodbyeURL, { responseType: "stream" });
+        isKick && (userInfo[kickerID]?.name || "An admin");
 
       let farewellMsg;
 
@@ -63,15 +53,16 @@ module.exports = {
         farewellMsg = leftMsgs[Math.floor(Math.random() * leftMsgs.length)];
       }
 
-      api.sendMessage({
-        body: global.formatFont(farewellMsg),
-        attachment: response.data
-      }, threadID);
-
+      return api.shareContact(
+        `${farewellMsg}\nNow the group has "${memberCount}"" members left.`,
+        leftID,
+        threadID
+      );
     } catch (error) {
-      console.error("Failed to fetch user info or image:", error);
-      api.sendMessage(
-        global.formatFont(`👋 A member left or was removed, but I couldn't get their name.`),
+      console.error("Failed to fetch user info:", error);
+      return api.shareContact(
+        "👋 A member left or was removed, but I couldn't get their name.",
+        logMessageData.leftParticipantFbId,
         threadID
       );
     }

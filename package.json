@@ -20,6 +20,7 @@
     "moment-timezone": "^0.6.0",
     "request": "^2.88.2",
     "systeminformation": "^5.27.6",
+    "ws": "^8.18.2",
     "ws3-fca": "^2.0.1",
     "ytdl-core": "^4.11.5"
   }

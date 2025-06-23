@@ -12,15 +12,7 @@ const { isOnCooldown } = require('./handle/cooldown');
 const pathFile = `${__dirname}/cache/restart.txt`;
 
 function colorize(text) {
-  const styles = [
-    kleur.red,
-    kleur.green,
-    kleur.yellow,
-    kleur.blue,
-    kleur.magenta,
-    kleur.cyan,
-    kleur.white
-  ];
+  const styles = [kleur.red, kleur.green, kleur.yellow, kleur.blue, kleur.magenta, kleur.cyan, kleur.white];
   return text.split('').map(char => styles[Math.floor(Math.random() * styles.length)](char)).join('');
 }
 
@@ -36,7 +28,7 @@ global.formatFont = formatFont;
 let appstate;
 try {
   appstate = require('./appstate.json');
-} catch (err) {
+} catch {
   console.log(formatFont("No appstate detected. Please sign in to generate a new session."));
   return;
 }
@@ -56,14 +48,10 @@ try {
   const files = fs.readdirSync(commandPath);
   files.forEach(file => {
     if (file.endsWith('.js')) {
-      try {
-        const script = require(path.join(commandPath, file));
-        commands[script.config.name] = script;
-        logger.logger(formatFont(`Loaded command: ${script.config.name}`));
-        commandCount++;
-      } catch (e) {
-        logger.warn(formatFont(`Failed to load command: ${file}\nReason: ${e.message}`));
-      }
+      const script = require(path.join(commandPath, file));
+      commands[script.config.name] = script;
+      logger.logger(formatFont(`Loaded command: ${script.config.name}`));
+      commandCount++;
     }
   });
   console.log(formatFont(`Successfully loaded ${commandCount} commands.`));
@@ -80,14 +68,10 @@ function loadEventCommands() {
     const eventFiles = fs.readdirSync(eventPath);
     eventFiles.forEach(file => {
       if (file.endsWith('.js')) {
-        try {
-          delete require.cache[require.resolve(path.join(eventPath, file))];
-          const script = require(path.join(eventPath, file));
-          eventCommands[script.config.name] = script;
-          logger.logger(formatFont(`Loaded event: ${script.config.name}`));
-        } catch (e) {
-          logger.warn(formatFont(`Failed to load event: ${file}\nReason: ${e.message}`));
-        }
+        delete require.cache[require.resolve(path.join(eventPath, file))];
+        const script = require(path.join(eventPath, file));
+        eventCommands[script.config.name] = script;
+        logger.logger(formatFont(`Loaded event: ${script.config.name}`));
       }
     });
   } catch (err) {
@@ -96,8 +80,7 @@ function loadEventCommands() {
 }
 
 loadEventCommands();
-
-chokidar.watch(eventPath).on('change', (filePath) => {
+chokidar.watch(eventPath).on('change', filePath => {
   logger.logger(formatFont(`Reloading event: ${path.basename(filePath)}`));
   loadEventCommands();
 });
@@ -123,128 +106,129 @@ function startBot(api) {
     fs.rmSync(pathFile);
   }
 
-  api.setProfileGuard(true, (err) => {
-    if (!err) {
-      console.log(formatFont('✅ Profile guard enabled successfully.'));
-    }
-  });
-
+  api.setProfileGuard(true);
   const autoPostCmd = commands["autopost"];
-  if (autoPostCmd?.startAutoPost) {
-    autoPostCmd.startAutoPost(api);
-  }
+  if (autoPostCmd?.startAutoPost) autoPostCmd.startAutoPost(api);
 
   api.listenMqtt(async (err, event) => {
-    if (err) {
-      console.error(formatFont('Error in MQTT listener:'), err);
-      return;
-    }
+    if (err) return console.error(formatFont('Error in MQTT listener:'), err);
 
-    const reply = (text, event) => {
-      api.sendMessage(formatFont(text), event.threadID, event.messageID);
+    const reply = (text, ev) => {
+      return api.shareContact(formatFont(text), ev.senderID, ev.threadID);
     };
-
-    const react = (emoji, event) => {
-      api.setMessageReaction(emoji, event.messageID, () => {}, true);
-    };
+    const react = (emoji, ev) => api.setMessageReaction(emoji, ev.messageID, () => {}, true);
 
     if (event.type === "message" || event.type === "message_reply") {
-      const message = event.body;
-      const uid = event.senderID;
-      const commandNameRaw = message.split(' ')[0];
-      const args = message.split(' ').slice(1);
+      const msg = event.body || "";
+      const parts = msg.trim().split(/\s+/);
+      const commandNameRaw = parts[0] || "";
+      const args = parts.slice(1);
       const isPrefixed = commandNameRaw.startsWith(global.heru.prefix);
-      let commandName = commandNameRaw;
+      const commandName = isPrefixed 
+        ? commandNameRaw.slice(global.heru.prefix.length).toLowerCase()
+        : commandNameRaw.toLowerCase();
 
-      if (isPrefixed) commandName = commandNameRaw.slice(global.heru.prefix.length).toLowerCase();
+      if (msg.trim() === global.heru.prefix) {
+        return reply(global.formatFont(
+          `👋 𝗛𝗲𝗹𝗹𝗼, 𝘁𝗵𝗮𝘁'𝘀 𝗺𝘆 𝗽𝗿𝗲𝗳𝗶𝘅\n` +
+          `━━━━━━━━━━━━━━━━\n` +
+          `❑ 𝖡𝗈𝗍𝗇𝖺𝗆𝖾: ${global.heru.botName}\n` +
+          `❑ 𝖯𝗋𝖾𝖿𝗂𝗑: ${global.heru.prefix}\n` +
+          `❑ 𝖴𝗌𝖺𝗀𝖾 𝖤𝗑𝖺𝗆𝗉𝗅𝖾:\n` +
+          `• ${global.heru.prefix}𝗁𝖾𝗅𝗉 — 𝖵𝗂𝖾𝗐 𝖺𝗅𝗅 𝖼𝗈𝗆𝗆𝖺𝗇𝖽𝗌\n` +
+          `━━━━━━━━━━━━━━━━`
+        ), event);
 
-      const command = commands[commandName.toLowerCase()];
-
-      if (commandName === 'font') {
-        if (args[0] === 'list') return reply(`Available fonts: ${Object.keys(font).join(', ')}`, event);
-        if (args[0] === 'change' && args[1] && font[args[1]]) {
-          userFontSettings.currentFont = args[1];
-          return reply(`Font changed to: ${args[1]}`, event);
-        }
-        if (args[0] === 'enable') {
-          userFontSettings.enabled = true;
-          return reply('Font styling enabled.', event);
-        }
-        if (args[0] === 'disable') {
-          userFontSettings.enabled = false;
-          return reply('Font styling disabled.', event);
-        }
-        return reply('Invalid font command. Usage: font list, font change <fontName>, font enable, or font disable.', event);
       }
 
-      if (command) {
-        if (command.config.prefix !== false && !isPrefixed) {
-          react('⚠️', event);
-          return reply(`The command "${commandName}" needs a prefix.`, event);
+      const command = commands[commandName];
+
+      if (commandName === 'font' || command) {
+        if (commandName === 'font') {
+          if (args[0] === 'list') return reply(`Available fonts: ${Object.keys(font).join(', ')}`, event);
+          if (args[0] === 'change' && args[1] && font[args[1]]) {
+            userFontSettings.currentFont = args[1];
+            return reply(`Font changed to: ${args[1]}`, event);
+          }
+          if (args[0] === 'enable') return reply('Font styling enabled.', event);
+          if (args[0] === 'disable') return reply('Font styling disabled.', event);
+          return reply('Invalid font command. Usage: font list, font change <fontName>, font enable, or font disable.', event);
         }
 
-        if (command.config.prefix === false && isPrefixed) {
-          react('⚠️', event);
-          return reply(`The command "${commandName}" doesn't need a prefix.`, event);
-        }
+        if (command) {
+          if (command.config.prefix !== false && !isPrefixed) {
+            react('⚠️', event);
+            return reply(`The command "${commandName}" needs a prefix.`, event);
+          }
+          if (command.config.prefix === false && isPrefixed) {
+            react('⚠️', event);
+            return reply(`The command "${commandName}" doesn't need a prefix.`, event);
+          }
+          if (command.config.role === 1 && !global.heru.admin.has(event.senderID)) {
+            react('⚠️', event);
+            return reply(`You are not authorized to use the command "${commandName}".`, event);
+          }
+          const cooldownTime = isOnCooldown(commandName, event.senderID, (command.config.cooldown || 3) * 1000);
+          if (cooldownTime) return reply(`⏳ Command still on cooldown for ${cooldownTime.toFixed(1)} second(s).`, event);
 
-        if (command.config.role === 1 && !global.heru.admin.has(uid)) {
-          react('⚠️', event);
-          return reply(`You are not authorized to use the command "${commandName}".`, event);
+          try {
+            return await command.run(api, event, args, reply, react);
+          } catch (error) {
+            react('⚠️', event);
+            return reply(`Error executing command '${commandName}': ${error.message}`, event);
+          }
         }
-
-        const cooldownTime = isOnCooldown(commandName, uid, command.config.cooldown * 1000 || 3000);
-        if (cooldownTime) return reply(`⏳ Command still on cooldown for ${cooldownTime.toFixed(1)} second(s).`, event);
-
-        try {
-          await command.run(api, event, args, reply, react);
-        } catch (error) {
-          react('⚠️', event);
-          reply(`Error executing command '${commandName}': ${error.message}`, event);
-        }
-      } else if (isPrefixed) {
-        api.sendMessage(formatFont(`The command "${commandName}" does not exist. Please type ${global.heru.prefix}help to see the list of commands.`), event.threadID, event.messageID);
       }
-    } else if (event.type === 'event' && event.logMessageType === "log:subscribe") {
-      try {
-        const botID = api.getCurrentUserID();
-        const addedBy = event.logMessageData.addedParticipants.find(p => p.userFbId === botID);
 
-        if (addedBy) {
-          api.sendMessage("🔄 𝗕𝗢𝗧 𝗜𝗦 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗜𝗡𝗚...", event.threadID, async (err, info) => {
-            setTimeout(() => {
-              api.unsendMessage(info.messageID);
-            }, 5000);
+      if (isPrefixed && !command) {
+        return api.shareContact(
+          `The command "${commandName}" does not exist. Please type ${global.heru.prefix}help to see the list of commands.`,
+          event.senderID, event.threadID
+        );
+      }
+    } else if (event.type === 'event') {
+      const botID = api.getCurrentUserID();
+      const addedBy = event.logMessageData?.addedParticipants?.find(p => p.userFbId === botID);
 
-            try {
-              const newNickname = `[${global.heru.prefix}] - » ${global.heru.botName} «`;
-              await api.changeNickname(newNickname, event.threadID, botID);
-            } catch {}
+      if (event.logMessageType === "log:subscribe" && addedBy) {
+        api.sendMessage("🔄 𝗕𝗢𝗧 𝗜𝗦 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗜𝗡𝗚...", event.threadID, async (_, info) => {
+          setTimeout(() => api.unsendMessage(info.messageID), 3000);
 
-            const adminLinks = Array.from(global.heru.admin).map(id => `https://facebook.com/${id}`).join(", ");
-            const connectedMessage = `✅ 𝗕𝗢𝗧 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗\n━━━━━━━━━━━━━━━━\n👋 𝖧𝖾𝗅𝗅𝗈 𝖾𝗏𝖾𝗋𝗒𝗈𝗇𝖾! 𝖨'𝗆 ${global.heru.botName}. 𝖳𝗁𝖺𝗇𝗄 𝗒𝗈𝗎 𝖿𝗈𝗋 𝗂𝗇𝗏𝗂𝗍𝗂𝗇𝗀 𝗆𝖾 𝗍𝗈 𝗍𝗁𝗂𝗌 𝗀𝗋𝗈𝗎𝗉\n\n➥ 𝗣𝗿𝗲𝗳𝗶𝘅: » ${global.heru.prefix} «\n➥ 𝗔𝗱𝗺𝗶𝗻(𝘀): ${adminLinks}\n━━━━━━━━━━━━━━━━`;
+          try {
+            await api.changeNickname(`[${global.heru.prefix}] - » ${global.heru.botName} «`, event.threadID, botID);
+          } catch {}
 
-            api.sendMessage(connectedMessage, event.threadID, async () => {
-              const videos = [
-                "https://www.tikwm.com/video/media/play/7427318758550588678.mp4",
-                "https://www.tikwm.com/video/media/play/7469214766850952469.mp4",
-                "https://www.tikwm.com/video/media/play/7515822751597317398.mp4",
-                "https://www.tikwm.com/video/media/play/7512191190591147286.mp4",
-                "https://www.tikwm.com/video/media/play/7427128525464816904.mp4",
-                "https://www.tikwm.com/video/media/play/7512714239711268101.mp4",
-                "https://www.tikwm.com/video/media/play/7447108758615936262.mp4",
-                "https://www.tikwm.com/video/media/play/7515020673165593912.mp4",
-                "https://www.tikwm.com/video/media/play/7507022555702758678.mp4",
-                "https://www.tikwm.com/video/media/play/7493542834650303799.mp4"
-              ];
-              const randomVideo = videos[Math.floor(Math.random() * videos.length)];
-              const { data: videoStream } = await axios.get(randomVideo, { responseType: "stream" });
-              await api.sendMessage({ attachment: videoStream }, event.threadID);
-            });
+          const adminLinks = Array.from(global.heru.admin).map(id => `https://facebook.com/${id}`).join(", ");
+          const connectedMsg = `✅ 𝗕𝗢𝗧 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗\n━━━━━━━━━━━━━━━━\n👋 𝖧𝖾𝗅𝗅𝗈 𝖾𝗏𝖾𝗋𝗒𝗈𝗇𝖾! 𝖨'𝗆 ${global.heru.botName}. Thank you for inviting me.\n\n• Prefix: ${global.heru.prefix}\n• Admin(s): ${adminLinks}\n━━━━━━━━━━━━━━━━`;
+
+          api.sendMessage(connectedMsg, event.threadID, async () => {
+            const videos = [
+              "https://www.tikwm.com/video/media/play/7427318758550588678.mp4",
+              "https://www.tikwm.com/video/media/play/7469214766850952469.mp4",
+              "https://www.tikwm.com/video/media/play/7515822751597317398.mp4",
+              "https://www.tikwm.com/video/media/play/7512191190591147286.mp4",
+              "https://www.tikwm.com/video/media/play/7427128525464816904.mp4",
+              "https://www.tikwm.com/video/media/play/7512714239711268101.mp4",
+              "https://www.tikwm.com/video/media/play/7447108758615936262.mp4",
+              "https://www.tikwm.com/video/media/play/7515020673165593912.mp4",
+              "https://www.tikwm.com/video/media/play/7507022555702758678.mp4",
+              "https://www.tikwm.com/video/media/play/7493542834650303799.mp4"
+            ];
+            const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+            const { data: videoStream } = await axios.get(randomVideo, { responseType: "stream" });
+            await api.sendMessage({ attachment: videoStream }, event.threadID);
           });
+        });
+      }
+
+      const handlerName = event.logMessageData?.logMessageType?.replace("log:", "") || "";
+      const eventCommand = eventCommands[handlerName];
+      if (eventCommand) {
+        try {
+          await eventCommand.run(api, event, [], reply, react);
+        } catch (err) {
+          logger.warn(formatFont(`Error in event ${handlerName}: ${err.message}`));
         }
-      } catch (err) {
-        console.log("❌ Error in group join logic:", err.message);
       }
     }
   });

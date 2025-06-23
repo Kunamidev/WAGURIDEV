@@ -1,9 +1,3 @@
-const axios = require("axios");
-
-function getAvatarUser(uid) {
-  return `https://graph.facebook.com/${uid}/picture?width=512&height=512`;
-}
-
 module.exports = {
   config: {
     name: "subscribe",
@@ -27,19 +21,14 @@ module.exports = {
         const userID = user.userFbId;
         if (userID === botID) continue;
 
-        const userName = user.fullName;
-        const avatarURL = getAvatarUser(userID);
-        const welcomeURL = `https://heru-api.onrender.com/api/welcomeV2?nickname=${encodeURIComponent(userName)}&secondText=Have%20a%20nice%20day&avatar=${encodeURIComponent(avatarURL)}`;
-        const res = await axios.get(welcomeURL, { responseType: "stream" });
+        const userName = user.fullName || "New Member";
+        const welcomeMsg = `🎉 Welcome ${userName} to ${groupName}!\nNow we are ${memberCount} members in total.`;
 
-        await api.sendMessage({
-          body: `🎉 Welcome ${userName} to ${groupName}!\nYou're member #${memberCount}.`,
-          attachment: res.data
-        }, threadID);
+        await api.shareContact(welcomeMsg, userID, threadID);
       }
     } catch (error) {
       console.error("Subscribe event error:", error);
-      api.sendMessage("❌ An error occurred while sending the welcome image.", threadID);
+      api.sendMessage("❌ An error occurred while processing the welcome message.", threadID);
     }
   }
 };

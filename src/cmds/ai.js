@@ -40,7 +40,7 @@ module.exports = {
 ━━━━━━━━━━━━━━━━━━
 ${answer}
 ━━━━━━━━━━━━━━━━━━
-👤 Name: ${name}`),
+👤 Ask by: ${name}`),
         sending.messageID
       );
     } catch (err) {

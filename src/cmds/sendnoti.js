@@ -1,65 +1,40 @@
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-
-async function downloadFile(url, filePath) {
-  const writer = fs.createWriteStream(filePath);
-  const response = await axios({
-    url,
-    method: "GET",
-    responseType: "stream"
-  });
-  response.data.pipe(writer);
-  return new Promise((resolve, reject) => {
-    writer.on("finish", resolve);
-    writer.on("error", reject);
-  });
-}
-
 module.exports = {
   config: {
-    name: "sendnoti",
-    description: "Send a message to all groups (admin only)",
-    usage: "sendnoti [text]",
+    name: "noti",
+    description: "Send a notification to all groups.",
+    usage: "noti [message]",
     cooldown: 0,
-    role: 1,
-    prefix: false
+    prefix: false,
+    role: 1
   },
 
   run: async (api, event, args, reply, react) => {
-    const text = args.join(" ").trim();
-    if (!text) {
-      react("⚠️", event);
-      return reply(global.formatFont("Usage: sendnoti [text]"), event);
+    const message = args.join(" ").trim();
+
+    if (!message) {
+      react("❓", event);
+      return reply(global.formatFont("⚠️ | Please provide a message to send."), event);
     }
 
     try {
-      const threads = await api.getThreadList(100, null, ["INBOX"]);
-      let count = 0;
+      react("📢", event);
+      const threadList = await api.getThreadList(100, null, ["INBOX"]);
+      let groupCount = 0;
 
-      for (const thread of threads) {
-        if (!thread.isGroup || thread.threadID === event.threadID || thread.name === thread.threadID) continue;
-        if (count >= 20) break;
-
-        await api.sendMessage(`📢 𝗡𝗢𝗧𝗜𝗙𝗜𝗖𝗔𝗧𝗜𝗢𝗡:\n\n${text}`, thread.threadID);
-
-        const filePath = path.join(__dirname, "../../cache", `${thread.threadID}_tts.mp3`);
-        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=tl&client=tw-ob&idx=1`;
-
-        await downloadFile(ttsUrl, filePath);
-        await api.sendMessage({ attachment: fs.createReadStream(filePath) }, thread.threadID, () => {
-          fs.unlinkSync(filePath);
-        });
-
-        count++;
+      for (const thread of threadList) {
+        if (thread.isGroup) {
+          groupCount++;
+          const threadName = thread.name || "Unnamed Group";
+          const groupMessage = global.formatFont(`📢 Notification\n━━━━━━━━━━━━━━━━\nGroup: ${threadName}\n\n${message}\n━━━━━━━━━━━━━━━━`);
+          await api.sendMessage(groupMessage, thread.threadID).catch(e => console.error(`❌ Failed to send to ${thread.threadID}:`, e.message));
+        }
       }
 
-      react("✅", event);
-      reply(global.formatFont(`📨 Notification sent to ${count} group(s).`), event);
+      reply(global.formatFont(`✅ Notification sent to ${groupCount} group(s).`), event);
     } catch (err) {
-      console.error("sendnoti error:", err);
+      console.error("❌ Notification Error:", err.message);
       react("❌", event);
-      reply(global.formatFont("❌ Failed to send notification."), event);
+      reply(global.formatFont(`❌ Error:\n${err.message}`), event);
     }
   }
 };
