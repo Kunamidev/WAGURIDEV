@@ -31,12 +31,6 @@ FACEBOOK BOT | Made by Jay Mar
 ─────────────────────────────────────
 `));
 
-if (fs.existsSync(pathFile)) {
-  const threadID = fs.readFileSync(pathFile, "utf8").trim();
-  api.sendMessage("✅ Bot done restarting", threadID);
-  fs.rmSync(pathFile);
-}
-
 global.formatFont = formatFont;
 
 let appstate;
@@ -114,15 +108,23 @@ wiegine.login(appstate, {}, (err, api) => {
     return;
   }
   startBot(api);
+  setTimeout(() => {
+    console.log(formatFont('⏳ Auto restarting after 40 minutes...'));
+    process.exit(1);
+  }, 2400000);
 });
 
 function startBot(api) {
   console.log(formatFont('Successfully logged in!'));
 
+  if (fs.existsSync(pathFile)) {
+    const threadID = fs.readFileSync(pathFile, "utf8").trim();
+    api.sendMessage("✅ Bot done restarting", threadID);
+    fs.rmSync(pathFile);
+  }
+
   api.setProfileGuard(true, (err) => {
-    if (err) {
-      console.error(formatFont('Failed to enable profile guard:'), err);
-    } else {
+    if (!err) {
       console.log(formatFont('✅ Profile guard enabled successfully.'));
     }
   });
@@ -203,34 +205,46 @@ function startBot(api) {
       } else if (isPrefixed) {
         api.sendMessage(formatFont(`The command "${commandName}" does not exist. Please type ${global.heru.prefix}help to see the list of commands.`), event.threadID, event.messageID);
       }
-    } else if (event.type === 'event' && event.logMessageType) {
-      const handlerName = event.logMessageType.replace('log:', '');
-      const eventCommand = eventCommands[handlerName];
+    } else if (event.type === 'event' && event.logMessageType === "log:subscribe") {
+      try {
+        const botID = api.getCurrentUserID();
+        const addedBy = event.logMessageData.addedParticipants.find(p => p.userFbId === botID);
 
-      if (event.logMessageType === "log:subscribe") {
-        try {
-          const botID = api.getCurrentUserID();
-          const addedBy = event.logMessageData.addedParticipants.find(p => p.userFbId === botID);
+        if (addedBy) {
+          api.sendMessage("🔄 𝗕𝗢𝗧 𝗜𝗦 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗜𝗡𝗚...", event.threadID, async (err, info) => {
+            setTimeout(() => {
+              api.unsendMessage(info.messageID);
+            }, 5000);
 
-          if (addedBy) {
-            api.sendMessage("🔄 𝗖𝗼𝗻𝗻𝗲𝗰𝘁𝗶𝗻𝗴 𝘁𝗼 𝗴𝗿𝗼𝘂𝗽.....", event.threadID, async () => {
-              try {
-                const newNickname = `[${global.heru.prefix}] - » ${global.heru.botName} «`;
-                await api.changeNickname(newNickname, event.threadID, botID);
-              } catch (err) {}
+            try {
+              const newNickname = `[${global.heru.prefix}] - » ${global.heru.botName} «`;
+              await api.changeNickname(newNickname, event.threadID, botID);
+            } catch {}
 
-              const adminList = Array.from(global.heru.admin).join(", ");
-              api.sendMessage(
-                `✅ 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗\n━━━━━━━━━━━━━━━━\n👋 𝗛𝗲𝗹𝗹𝗼 𝗲𝘃𝗲𝗿𝘆𝗼𝗻𝗲! 𝗜'𝗺 ${global.heru.botName}, 𝗧𝗵𝗮𝗻𝗸 𝘆𝗼𝘂 𝗳𝗼𝗿 𝗶𝗻𝘃𝗶𝘁𝗶𝗻𝗴 𝗺𝗲 𝗼𝗻 𝘁𝗵𝗶𝘀 𝗴𝗿𝗼𝘂𝗽.\n\n• 𝗣𝗿𝗲𝗳𝗶𝘅: ${global.heru.prefix}\n• 𝗔𝗱𝗺𝗶𝗻(𝘀): https://facebook.com/${adminList}\n━━━━━━━━━━━━━━━━`,
-                event.threadID
-              );
+            const adminLinks = Array.from(global.heru.admin).map(id => `https://facebook.com/${id}`).join(", ");
+            const connectedMessage = `✅ 𝗕𝗢𝗧 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗\n━━━━━━━━━━━━━━━━\n👋 𝖧𝖾𝗅𝗅𝗈 𝖾𝗏𝖾𝗋𝗒𝗈𝗇𝖾! 𝖨'𝗆 ${global.heru.botName}. 𝖳𝗁𝖺𝗇𝗄 𝗒𝗈𝗎 𝖿𝗈𝗋 𝗂𝗇𝗏𝗂𝗍𝗂𝗇𝗀 𝗆𝖾 𝗍𝗈 𝗍𝗁𝗂𝗌 𝗀𝗋𝗈𝗎𝗉\n\n➥ 𝗣𝗿𝗲𝗳𝗶𝘅: » ${global.heru.prefix} «\n➥ 𝗔𝗱𝗺𝗶𝗻(𝘀): ${adminLinks}\n━━━━━━━━━━━━━━━━`;
+
+            api.sendMessage(connectedMessage, event.threadID, async () => {
+              const videos = [
+                "https://www.tikwm.com/video/media/play/7427318758550588678.mp4",
+                "https://www.tikwm.com/video/media/play/7469214766850952469.mp4",
+                "https://www.tikwm.com/video/media/play/7515822751597317398.mp4",
+                "https://www.tikwm.com/video/media/play/7512191190591147286.mp4",
+                "https://www.tikwm.com/video/media/play/7427128525464816904.mp4",
+                "https://www.tikwm.com/video/media/play/7512714239711268101.mp4",
+                "https://www.tikwm.com/video/media/play/7447108758615936262.mp4",
+                "https://www.tikwm.com/video/media/play/7515020673165593912.mp4",
+                "https://www.tikwm.com/video/media/play/7507022555702758678.mp4",
+                "https://www.tikwm.com/video/media/play/7493542834650303799.mp4"
+              ];
+              const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+              const { data: videoStream } = await axios.get(randomVideo, { responseType: "stream" });
+              await api.sendMessage({ attachment: videoStream }, event.threadID);
             });
-          }
-        } catch (err) {}
-      }
-
-      if (eventCommand) {
-        await eventCommand.run(api, event, [], reply, react);
+          });
+        }
+      } catch (err) {
+        console.log("❌ Error in group join logic:", err.message);
       }
     }
   });

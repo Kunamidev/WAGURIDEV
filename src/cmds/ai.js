@@ -26,7 +26,12 @@ module.exports = {
       const res = await axios.get(`https://heru-api.onrender.com/api/searchgpt?msg=${encodeURIComponent(question)}`);
       const answer = res.data?.reply || "❌ No response received.";
 
-      const name = global.data?.userName?.get(event.senderID) || event.senderID;
+      let name = global.data?.userName?.get(event.senderID);
+      if (!name) {
+        const info = await api.getUserInfo(event.senderID);
+        name = info[event.senderID]?.name || event.senderID;
+      }
+
       react("✅", event);
 
       api.editMessage(
@@ -35,7 +40,7 @@ module.exports = {
 ━━━━━━━━━━━━━━━━━━
 ${answer}
 ━━━━━━━━━━━━━━━━━━
-👤 UID: ${name}`),
+👤 Name: ${name}`),
         sending.messageID
       );
     } catch (err) {
