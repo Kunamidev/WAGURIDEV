@@ -92,9 +92,9 @@ wiegine.login(appstate, {}, (err, api) => {
   }
   startBot(api);
   setTimeout(() => {
-    console.log(formatFont('⏳ Auto restarting after 40 minutes...'));
-    process.exit(1);
-  }, 2400000);
+    console.log(formatFont('⏳ Auto restarting after 30 minutes...'));
+    process.exit(2);
+  }, 1800000);
 });
 
 function startBot(api) {
