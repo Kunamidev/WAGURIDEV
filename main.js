@@ -116,11 +116,6 @@ wiegine.login(appstate, {}, (err, api) => {
   startBot(api);
 });
 
-setInterval(() => {
-  console.log(formatFont('Restarting bot...'));
-  process.exit(2);
-}, 1800000);
-
 function startBot(api) {
   console.log(formatFont('Successfully logged in!'));
 
@@ -131,10 +126,11 @@ function startBot(api) {
       console.log(formatFont('✅ Profile guard enabled successfully.'));
     }
   });
+
   const autoPostCmd = commands["autopost"];
-if (autoPostCmd?.startAutoPost) {
-  autoPostCmd.startAutoPost(api);
-}
+  if (autoPostCmd?.startAutoPost) {
+    autoPostCmd.startAutoPost(api);
+  }
 
   api.listenMqtt(async (err, event) => {
     if (err) {
@@ -214,12 +210,23 @@ if (autoPostCmd?.startAutoPost) {
       if (event.logMessageType === "log:subscribe") {
         try {
           const botID = api.getCurrentUserID();
-          const newNickname = `[${global.heru.prefix}] - » ${global.heru.botName} «`;
-          await api.changeNickname(newNickname, event.threadID, botID);
-          logger.logger(formatFont(`✅ Changed nickname to: ${newNickname}`));
-        } catch (err) {
-          logger.warn(formatFont("❌ Failed to auto-change nickname: " + err.message));
-        }
+          const addedBy = event.logMessageData.addedParticipants.find(p => p.userFbId === botID);
+
+          if (addedBy) {
+            api.sendMessage("🔄 𝗖𝗼𝗻𝗻𝗲𝗰𝘁𝗶𝗻𝗴 𝘁𝗼 𝗴𝗿𝗼𝘂𝗽.....", event.threadID, async () => {
+              try {
+                const newNickname = `[${global.heru.prefix}] - » ${global.heru.botName} «`;
+                await api.changeNickname(newNickname, event.threadID, botID);
+              } catch (err) {}
+
+              const adminList = Array.from(global.heru.admin).join(", ");
+              api.sendMessage(
+                `✅ 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗\n━━━━━━━━━━━━━━━━\n👋 𝗛𝗲𝗹𝗹𝗼 𝗲𝘃𝗲𝗿𝘆𝗼𝗻𝗲! 𝗜'𝗺 ${global.heru.botName}, 𝗧𝗵𝗮𝗻𝗸 𝘆𝗼𝘂 𝗳𝗼𝗿 𝗶𝗻𝘃𝗶𝘁𝗶𝗻𝗴 𝗺𝗲 𝗼𝗻 𝘁𝗵𝗶𝘀 𝗴𝗿𝗼𝘂𝗽.\n\n• 𝗣𝗿𝗲𝗳𝗶𝘅: ${global.heru.prefix}\n• 𝗔𝗱𝗺𝗶𝗻(𝘀): https://facebook.com/${adminList}\n━━━━━━━━━━━━━━━━`,
+                event.threadID
+              );
+            });
+          }
+        } catch (err) {}
       }
 
       if (eventCommand) {

@@ -17,6 +17,7 @@ module.exports = {
     const getUserID = api.getCurrentUserID.bind(api);
 
     try {
+      const botID = await getUserID();
       const addedParticipants = logMessageData.addedParticipants;
       const threadInfo = await api.getThreadInfo(threadID);
       const groupName = threadInfo.name;
@@ -24,9 +25,10 @@ module.exports = {
 
       for (const user of addedParticipants) {
         const userID = user.userFbId;
+        if (userID === botID) continue;
+
         const userName = user.fullName;
         const avatarURL = getAvatarUser(userID);
-
         const welcomeURL = `https://heru-api.onrender.com/api/welcomeV2?nickname=${encodeURIComponent(userName)}&secondText=Have%20a%20nice%20day&avatar=${encodeURIComponent(avatarURL)}`;
         const res = await axios.get(welcomeURL, { responseType: "stream" });
 

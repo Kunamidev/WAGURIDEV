@@ -3,34 +3,44 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "ai",
-    description: "Talk with PinoyGPT",
-    usage: "ai [message]",
-    cooldown: 3,
+    description: "Talk to AI using SearchGPT",
+    usage: "ai [your question]",
+    cooldown: 5,
     prefix: false,
     role: 0
   },
 
   run: async (api, event, args, reply, react) => {
-    const message = args.join(" ").trim();
+    const question = args.join(" ").trim();
 
-    if (!message) {
-      react("🤖", event);
-      return reply(global.formatFont("[⚠️] Please enter a message to ask."), event);
+    if (!question) {
+      react("❓", event);
+      return reply(global.formatFont("⚠️ | Please provide a question to ask."), event);
     }
 
     try {
-      react("💬", event);
-      const pending = await api.sendMessage("⏳ Generating response...", event.threadID);
+      react("⏳", event);
+      const msg = global.formatFont("⏳ Searching, please wait...");
+      const sending = await api.sendMessage(msg, event.threadID);
 
-      const res = await axios.get(`https://heru-api.onrender.com/api/pinoygpt?msg=${encodeURIComponent(message)}`);
-      const answer = res.data?.reply || "Walang sagot ang AI ngayon.";
+      const res = await axios.get(`https://heru-api.onrender.com/api/searchgpt?msg=${encodeURIComponent(question)}`);
+      const answer = res.data?.reply || "❌ No response received.";
+
+      const name = global.data?.userName?.get(event.senderID) || event.senderID;
       react("✅", event);
 
-      const output = `🤖 𝗣𝗜𝗡𝗢𝗬𝗚𝗣𝗧\n━━━━━━━━━━━━━━━━━━\n${answer}\n━━━━━━━━━━━━━━━━━━\n👤 Author: ${res.data.author}`;
-      api.editMessage(global.formatFont(output), pending.messageID);
+      api.editMessage(
+        global.formatFont(
+`🔄 𝗦𝗘𝗔𝗥𝗖𝗛𝗚𝗣𝗧
+━━━━━━━━━━━━━━━━━━
+${answer}
+━━━━━━━━━━━━━━━━━━
+👤 UID: ${name}`),
+        sending.messageID
+      );
     } catch (err) {
-      console.error("PinoyGPT API error:", err.message);
-      reply(global.formatFont(`❌ Error: ${err.message}`), event);
+      console.error("AI Error:", err.message);
+      reply(global.formatFont(`⚠️ Error:\n${err.message}`), event);
     }
-  }
+  },
 };
